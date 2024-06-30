@@ -1,10 +1,31 @@
 import os
 import re
 import sys
+import fnmatch
 from collections import defaultdict
 
 # コマンドライン引数からパスを取得
-paths = sys.argv[1:]
+paths = []
+options = []
+for arg in sys.argv[1:]:
+    if arg.startswith('-'):
+        options.append(arg)
+    else:
+        paths.append(arg)
+
+# ヘルプメッセージを表示する関数
+def print_help():
+    print("使用方法1: python find_duplicate.py [オプション] <ファイル1> <ファイル2>")
+    print("使用方法2: python find_duplicate.py [オプション] <ディレクトリ>")
+    print("オプション:")
+    print("  -a    重複するファイルと重複する恐れのあるファイルの両方を表示")
+    print("  -p    重複する恐れのあるファイルのみを表示")
+    print("  -h    このヘルプメッセージを表示")
+    sys.exit(0)
+
+# -h オプションが指定されている場合はヘルプメッセージを表示
+if '-h' in options:
+    print_help()
 
 # 重複行を保持する辞書
 duplicate_lines = defaultdict(set)
@@ -24,9 +45,24 @@ exclude_patterns = [
     r".*/$"
 ]
 
+# 除外するファイルパターンを読み込む
+exclude_patterns_from_conf = set()
+config_file = os.path.expanduser("~/.find_duplicate.conf")
+if os.path.exists(config_file):
+    with open(config_file, 'r') as conf:
+        for line in conf:
+            line = line.strip()
+            if line.startswith("BLOCK="):
+                exclude_patterns_from_conf.update(line.split("=")[1].split())
+
 # パターンに一致するかどうかを確認する関数
-def is_excluded(line):
-    return any(re.search(pattern, line) for pattern in exclude_patterns)
+def is_excluded(line, file_path):
+    base_name = os.path.basename(file_path)
+    if any(re.search(pattern, line) for pattern in exclude_patterns):
+        return True
+    if any(fnmatch.fnmatch(file_path, pattern) or fnmatch.fnmatch(base_name, pattern) for pattern in exclude_patterns_from_conf):
+        return True
+    return False
 
 # ファイルを処理する関数
 def process_file(file_path):
@@ -34,7 +70,7 @@ def process_file(file_path):
         lines = set()  # 同一ファイル内の重複行を防ぐために使用
         for line in f:
             line = line.strip()
-            if is_excluded(line):
+            if is_excluded(line, file_path):
                 continue
             if line not in lines:
                 duplicate_lines[line].add(file_path)
@@ -52,20 +88,29 @@ for path in paths:
             for file in files:
                 process_file(os.path.join(root, file))
 
-# 重複する行を表示
-print("重複するファイル/リンク:")
-for line, files in duplicate_lines.items():
-    if len(files) > 1:
-        print(f"重複行: {line}")
-        print(f"ファイル: {' '.join(sorted(files))}\n")
+def print_duplicates():
+    print("重複するファイル/リンク:")
+    for line, files in duplicate_lines.items():
+        if len(files) > 1:
+            print(f"重複行: {line}")
+            print(f"ファイル: {' '.join(sorted(files))}\n")
 
-# 重複の恐れがある行を表示
-print("重複の恐れがあるファイル/リンク (.so):")
-for base_name, file_dict in potential_duplicates.items():
-    if len(file_dict) > 1:
-        print(f"ベース名: {base_name}")
-        for file_path, lines in file_dict.items():
-            for line in lines:
-                print(f"エントリ: {line} ({file_path})")
-        print("")
+def print_potential_duplicates():
+    print("重複の恐れがあるファイル/リンク (.so):")
+    for base_name, file_dict in potential_duplicates.items():
+        if len(file_dict) > 1:
+            print(f"ベース名: {base_name}")
+            for file_path, lines in file_dict.items():
+                for line in lines:
+                    print(f"エントリ: {line} ({file_path})")
+            print("")
+
+# 結果を表示
+if "-a" in options:
+    print_duplicates()
+    print_potential_duplicates()
+elif "-p" in options:
+    print_potential_duplicates()
+else:
+    print_duplicates()
 
