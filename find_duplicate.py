@@ -21,7 +21,6 @@ for arg in sys.argv[1:]:
 if not paths:
     paths.append(PKGDIR)
 
-print(f"paths = {paths}")
 # ヘルプメッセージを表示する関数
 def print_help():
     print("使用方法1: python find_duplicate.py [オプション]")
