@@ -1,8 +1,12 @@
+#!/usr/bin/python3
+
 import os
 import re
 import sys
 import fnmatch
 from collections import defaultdict
+
+PKGDIR = "/var/log/packages/"
 
 # コマンドライン引数からパスを取得
 paths = []
@@ -11,15 +15,20 @@ for arg in sys.argv[1:]:
     if arg.startswith('-'):
         options.append(arg)
     else:
-        paths.append(arg)
+        paths.append(PKGDIR + arg)
 
+# 引数が与えられなかった場合は、pathsにPKGDIRを格納
+if not paths:
+    paths.append(PKGDIR)
+
+print(f"paths = {paths}")
 # ヘルプメッセージを表示する関数
 def print_help():
-    print("使用方法1: python find_duplicate.py [オプション] <ファイル1> <ファイル2>")
-    print("使用方法2: python find_duplicate.py [オプション] <ディレクトリ>")
+    print("使用方法1: python find_duplicate.py [オプション]")
+    print("使用方法2: python find_duplicate.py [オプション] <パッケージ1> <パッケージ>")
     print("オプション:")
-    print("  -a    重複するファイルと重複する恐れのあるファイルの両方を表示")
-    print("  -p    重複する恐れのあるファイルのみを表示")
+    print("  -a    重複するファイルを含むパッケージと重複する恐れのあるライブラリを含むパッケージの両方を表示")
+    print("  -p    重複する恐れのあるライブラリを含むパッケージのみを表示")
     print("  -h    このヘルプメッセージを表示")
     sys.exit(0)
 
@@ -92,17 +101,21 @@ def print_duplicates():
     print("重複するファイル/リンク:")
     for line, files in duplicate_lines.items():
         if len(files) > 1:
-            print(f"重複行: {line}")
-            print(f"ファイル: {' '.join(sorted(files))}\n")
+            print(f"重複ファイル: /{line}")
+            for file in sorted(files):
+                name = os.path.basename(file)
+                print(f"パッケージ: {name}")
+            print("")
 
 def print_potential_duplicates():
-    print("重複の恐れがあるファイル/リンク (.so):")
+    print("重複の恐れがあるライブラリ (.so):")
     for base_name, file_dict in potential_duplicates.items():
         if len(file_dict) > 1:
-            print(f"ベース名: {base_name}")
+            print(f"ベース名: /{base_name}")
             for file_path, lines in file_dict.items():
                 for line in lines:
-                    print(f"エントリ: {line} ({file_path})")
+                    name = os.path.basename(file_path)
+                    print(f"エントリ: /{line} ({name})")
             print("")
 
 # 結果を表示
