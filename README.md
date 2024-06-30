@@ -24,3 +24,9 @@ find_duplicate.py -p
 ```
 find_duplicate.py -a
 ```
+
+## 調べるパッケージから除外する
+$HOME/.find_duplicate.confに次のように記述する
+```
+BLOCK=gcc libgcc Python XPython
+```
