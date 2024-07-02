@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import fnmatch
+import subprocess
 from collections import defaultdict
 
 PKGDIR = "/var/log/packages/"
@@ -11,11 +12,31 @@ PKGDIR = "/var/log/packages/"
 # コマンドライン引数からパスを取得
 paths = []
 options = []
-for arg in sys.argv[1:]:
+archive_file = None
+
+i = 1
+while i < len(sys.argv):
+    arg = sys.argv[i]
     if arg.startswith('-'):
-        options.append(arg)
+        if 'd' in arg:
+            if arg == '-d':
+                archive_file = sys.argv[i + 1]
+                i += 1
+            else:
+                # Extract the archive file argument when combined with other options
+                idx = arg.index('d')
+                if len(arg) > idx + 1:
+                    archive_file = arg[idx + 1:]
+                else:
+                    archive_file = sys.argv[i + 1]
+                    i += 1
+        if 'a' in arg:
+            options.append('a')
+        if 'p' in arg:
+            options.append('p')
     else:
         paths.append(PKGDIR + arg)
+    i += 1
 
 # 引数が与えられなかった場合は、pathsにPKGDIRを格納
 if not paths:
@@ -28,11 +49,12 @@ def print_help():
     print("オプション:")
     print("  -a    重複するファイルを含むパッケージと重複する恐れのあるライブラリを含むパッケージの両方を表示")
     print("  -p    重複する恐れのあるライブラリを含むパッケージのみを表示")
+    print("  -d <package>    指定されたPlamoパッケージと比較")
     print("  -h    このヘルプメッセージを表示")
     sys.exit(0)
 
 # -h オプションが指定されている場合はヘルプメッセージを表示
-if '-h' in options:
+if 'h' in options:
     print_help()
 
 # 重複行を保持する辞書
@@ -73,19 +95,36 @@ def is_excluded(line, file_path):
     return False
 
 # ファイルを処理する関数
-def process_file(file_path):
+def process_file(file_path, base_path=""):
     with open(file_path, 'r') as f:
         lines = set()  # 同一ファイル内の重複行を防ぐために使用
         for line in f:
             line = line.strip()
             if is_excluded(line, file_path):
                 continue
-            if line not in lines:
-                duplicate_lines[line].add(file_path)
-                lines.add(line)
+            full_line = os.path.join(base_path, line)
+            if full_line not in lines:
+                duplicate_lines[full_line].add(file_path)
+                lines.add(full_line)
                 if re.search(r'\.so(\.[0-9]+)*$', line):
                     base_name = re.sub(r'\.so(\.[0-9]+)*$', '.so', line)
-                    potential_duplicates[base_name][file_path].add(line)
+                    potential_duplicates[base_name][file_path].add(full_line)
+
+# アーカイブファイルを処理する関数
+def process_archive(archive_path):
+    try:
+        output = subprocess.check_output(['tar', '-tf', archive_path], text=True)
+        for line in output.splitlines():
+            line = line.strip()
+            if is_excluded(line, line):
+                continue
+            duplicate_lines[line].add(f"PACKAGE:{archive_path}")
+            if re.search(r'\.so(\.[0-9]+)*$', line):
+                base_name = re.sub(r'\.so(\.[0-9]+)*$', '.so', line)
+                potential_duplicates[base_name][f"PACKAGE:{archive_path}"].add(line)
+    except subprocess.CalledProcessError as e:
+        print(f"Error processing archive {archive_path}: {e}")
+        sys.exit(1)
 
 # 各ファイルを処理
 for path in paths:
@@ -96,20 +135,28 @@ for path in paths:
             for file in files:
                 process_file(os.path.join(root, file))
 
-def print_duplicates():
+# アーカイブファイルを処理
+if archive_file:
+    process_archive(archive_file)
+
+def print_duplicates(filter_archive=None):
     print("重複するファイル/リンク:")
     for line, files in duplicate_lines.items():
         if len(files) > 1:
+            if filter_archive and not any(f"PACKAGE:{filter_archive}" in file for file in files):
+                continue
             print(f"重複ファイル: /{line}")
             for file in sorted(files):
                 name = os.path.basename(file)
                 print(f"パッケージ: {name}")
             print("")
 
-def print_potential_duplicates():
+def print_potential_duplicates(filter_archive=None):
     print("重複の恐れがあるライブラリ (.so):")
     for base_name, file_dict in potential_duplicates.items():
         if len(file_dict) > 1:
+            if filter_archive and not any(f"PACKAGE:{filter_archive}" in file for file in file_dict.keys()):
+                continue
             print(f"ベース名: /{base_name}")
             for file_path, lines in file_dict.items():
                 for line in lines:
@@ -118,11 +165,20 @@ def print_potential_duplicates():
             print("")
 
 # 結果を表示
-if "-a" in options:
-    print_duplicates()
-    print_potential_duplicates()
-elif "-p" in options:
-    print_potential_duplicates()
+if archive_file:
+    if 'a' in options:
+        print_duplicates(filter_archive=archive_file)
+        print_potential_duplicates(filter_archive=archive_file)
+    elif 'p' in options:
+        print_potential_duplicates(filter_archive=archive_file)
+    else:
+        print_duplicates(filter_archive=archive_file)
 else:
-    print_duplicates()
+    if 'a' in options:
+        print_duplicates()
+        print_potential_duplicates()
+    elif 'p' in options:
+        print_potential_duplicates()
+    else:
+        print_duplicates()
 
