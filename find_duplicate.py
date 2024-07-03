@@ -19,17 +19,17 @@ while i < len(sys.argv):
     arg = sys.argv[i]
     if arg.startswith('-'):
         if 'd' in arg:
-            if arg == '-d':
-                archive_file = sys.argv[i + 1]
-                i += 1
+            if arg == '-d':                         # 引数が完全に-d
+                archive_file = sys.argv[i + 1]      # 次の引数を archive_file に格納
+                i += 1                              # 次の引数をスキップ
             else:
                 # Extract the archive file argument when combined with other options
                 idx = arg.index('d')
-                if len(arg) > idx + 1:
-                    archive_file = arg[idx + 1:]
+                if len(arg) > idx + 1:              # arg 内で d の後ろに引数が続く
+                    archive_file = arg[idx + 1:]    # arg 内のd以降の文字列を archive_file に格納
                 else:
-                    archive_file = sys.argv[i + 1]
-                    i += 1
+                    archive_file = sys.argv[i + 1]  # 次の引数を archive_file に格納
+                    i += 1                          # 次の引数をスキップ
         if 'a' in arg:
             options.append('a')
         if 'p' in arg:
@@ -45,7 +45,8 @@ if not paths:
 # ヘルプメッセージを表示する関数
 def print_help():
     print("使用方法1: python find_duplicate.py [オプション]")
-    print("使用方法2: python find_duplicate.py [オプション] <パッケージ1> <パッケージ>")
+    print("使用方法2: python find_duplicate.py [オプション] <パッケージ1> <パッケージ2>")
+    print("使用方法3: python find_duplicate.py -d <パッケージ>")
     print("オプション:")
     print("  -a    重複するファイルを含むパッケージと重複する恐れのあるライブラリを含むパッケージの両方を表示")
     print("  -p    重複する恐れのあるライブラリを含むパッケージのみを表示")
@@ -85,7 +86,7 @@ if os.path.exists(config_file):
             if line.startswith("BLOCK="):
                 exclude_patterns_from_conf.update(line.split("=")[1].split())
 
-# パターンに一致するかどうかを確認する関数
+# 除外するパターンに一致するかどうかを確認する関数
 def is_excluded(line, file_path):
     base_name = os.path.basename(file_path)
     if any(re.search(pattern, line) for pattern in exclude_patterns):
@@ -123,7 +124,7 @@ def process_archive(archive_path):
                 base_name = re.sub(r'\.so(\.[0-9]+)*$', '.so', line)
                 potential_duplicates[base_name][f"PACKAGE:{archive_path}"].add(line)
     except subprocess.CalledProcessError as e:
-        print(f"Error processing archive {archive_path}: {e}")
+        print(f"パッケージの解析中に問題が発生しました: {archive_path}: {e}")
         sys.exit(1)
 
 # 各ファイルを処理
