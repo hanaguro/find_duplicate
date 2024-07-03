@@ -127,6 +127,10 @@ def process_archive(archive_path):
         print(f"パッケージの解析中に問題が発生しました: {archive_path}: {e}")
         sys.exit(1)
 
+# アーカイブファイルを処理
+if archive_file:
+    process_archive(archive_file)
+
 # 各ファイルを処理
 for path in paths:
     if os.path.isfile(path):
@@ -135,10 +139,6 @@ for path in paths:
         for root, _, files in os.walk(path):
             for file in files:
                 process_file(os.path.join(root, file))
-
-# アーカイブファイルを処理
-if archive_file:
-    process_archive(archive_file)
 
 def print_duplicates(filter_archive=None):
     print("重複するファイル/リンク:")
