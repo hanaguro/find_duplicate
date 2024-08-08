@@ -30,27 +30,45 @@ while i < len(sys.argv):
                 else:
                     archive_file = sys.argv[i + 1]  # 次の引数を archive_file に格納
                     i += 1                          # 次の引数をスキップ
+
+            if not os.path.isfile(archive_file):
+                print(f"パッケージファイルが見つかりません: {archive_file}")
+                sys.exit(1)
+
         if 'a' in arg:
             options.append('a')
         if 'p' in arg:
             options.append('p')
+        if arg == '--help' or arg == '-h':
+            options.append('h')
     else:
         paths.append(PKGDIR + arg)
     i += 1
 
-# 引数が与えられなかった場合は、pathsにPKGDIRを格納
-if not paths:
+for path in paths:
+    if not os.path.exists(path):
+        print(f"パッケージ名が見つかりません: {os.path.basename(path)}")
+        sys.exit(1)
+
+# 引数が一つであれば、one_arg_nameにファイル名を格納
+one_arg_name = None
+if len(paths) == 1 and os.path.isfile(paths[0]):
+    one_arg_name = os.path.basename(paths[0])
+
+# 引数が与えられなかったか引数が一つであれば、pathsにPKGDIRを格納
+if not paths or (len(paths) == 1 and os.path.isfile(paths[0])):
     paths.append(PKGDIR)
 
 # ヘルプメッセージを表示する関数
 def print_help():
     print("使用方法1: python find_duplicate.py [オプション]")
+    print("使用方法2: python find_duplicate.py [オプション] <パッケージ>")
     print("使用方法2: python find_duplicate.py [オプション] <パッケージ1> <パッケージ2>")
     print("使用方法3: python find_duplicate.py -d <パッケージ>")
     print("オプション:")
     print("  -a    重複するファイルを含むパッケージと重複する恐れのあるライブラリを含むパッケージの両方を表示")
     print("  -p    重複する恐れのあるライブラリを含むパッケージのみを表示")
-    print("  -d <package>    指定されたPlamoパッケージと比較")
+    print("  -d <package>    指定されたPlamoパッケージファイルと比較")
     print("  -h    このヘルプメッセージを表示")
     sys.exit(0)
 
@@ -97,19 +115,29 @@ def is_excluded(line, file_path):
 
 # ファイルを処理する関数
 def process_file(file_path, base_path=""):
-    with open(file_path, 'r') as f:
-        lines = set()  # 同一ファイル内の重複行を防ぐために使用
-        for line in f:
-            line = line.strip()
-            if is_excluded(line, file_path):
-                continue
-            full_line = os.path.join(base_path, line)
-            if full_line not in lines:
-                duplicate_lines[full_line].add(file_path)
-                lines.add(full_line)
-                if re.search(r'\.so(\.[0-9]+)*$', line):
-                    base_name = re.sub(r'\.so(\.[0-9]+)*$', '.so', line)
-                    potential_duplicates[base_name][file_path].add(full_line)
+    try:
+        with open(file_path, 'r') as f:
+            lines = set()  # 同一ファイル内の重複行を防ぐために使用
+            for line in f:
+                line = line.strip()
+                if is_excluded(line, file_path):
+                    continue
+                full_line = os.path.join(base_path, line)
+                if full_line not in lines:
+                    duplicate_lines[full_line].add(file_path)
+                    lines.add(full_line)
+                    if re.search(r'\.so(\.[0-9]+)*$', line):
+                        base_name = re.sub(r'\.so(\.[0-9]+)*$', '.so', line)
+                        potential_duplicates[base_name][file_path].add(full_line)
+    except FileNotFoundError:
+        print(f"ファイルが見つかりません: {os.path.basename(file_path)}")
+        sys.exit(1)
+    except PermissionError:
+        print(f"ファイルにアクセスできません: {os.path.basename(file_path)}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"ファイルの処理中に問題が発生しました: {os.path.basename(file_path)}: {e}")
+        sys.exit(1)
 
 # アーカイブファイルを処理する関数
 def process_archive(archive_path):
@@ -146,6 +174,8 @@ def print_duplicates(filter_archive=None):
         if len(files) > 1:
             if filter_archive and not any(f"PACKAGE:{filter_archive}" in file for file in files):
                 continue
+            if one_arg_name and not any(os.path.basename(file) == one_arg_name for file in files):
+                continue
             print(f"重複ファイル: /{line}")
             for file in sorted(files):
                 name = os.path.basename(file)
@@ -157,6 +187,8 @@ def print_potential_duplicates(filter_archive=None):
     for base_name, file_dict in potential_duplicates.items():
         if len(file_dict) > 1:
             if filter_archive and not any(f"PACKAGE:{filter_archive}" in file for file in file_dict.keys()):
+                continue
+            if one_arg_name and not any(os.path.basename(file) == one_arg_name for file in file_dict.keys()):
                 continue
             print(f"ベース名: /{base_name}")
             for file_path, lines in file_dict.items():
