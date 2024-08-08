@@ -172,9 +172,17 @@ def print_duplicates(filter_archive=None):
     print("重複するファイル/リンク:")
     for line, files in duplicate_lines.items():
         if len(files) > 1:
-            if filter_archive and not any(f"PACKAGE:{filter_archive}" in file for file in files):
+            package_filter_archive_flag = False
+            one_arg_name_flag = False
+            for file in files:
+                if f"PACKAGE:{filter_archive}" in file:
+                    package_filter_archive_flag = True
+                if os.path.basename(file) == one_arg_name:
+                    one_arg_name_flag = True
+
+            if filter_archive and not package_filter_archive_flag:
                 continue
-            if one_arg_name and not any(os.path.basename(file) == one_arg_name for file in files):
+            if one_arg_name and not one_arg_name_flag:
                 continue
             print(f"重複ファイル: /{line}")
             for file in sorted(files):
@@ -186,9 +194,17 @@ def print_potential_duplicates(filter_archive=None):
     print("重複の恐れがあるライブラリ (.so):")
     for base_name, file_dict in potential_duplicates.items():
         if len(file_dict) > 1:
-            if filter_archive and not any(f"PACKAGE:{filter_archive}" in file for file in file_dict.keys()):
+            package_filter_archive_flag = False
+            one_arg_name_flag = False
+            for file in file_dict.keys():
+                if f"PACKAGE:{filter_archive}" in file:
+                    package_filter_archive_flag = True
+                if os.path.basename(file) == one_arg_name:
+                    one_arg_name_flag = True
+
+            if filter_archive and not package_filter_archive_flag:
                 continue
-            if one_arg_name and not any(os.path.basename(file) == one_arg_name for file in file_dict.keys()):
+            if one_arg_name and not one_arg_name_flag:
                 continue
             print(f"ベース名: /{base_name}")
             for file_path, lines in file_dict.items():
