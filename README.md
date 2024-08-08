@@ -7,6 +7,11 @@ Plamo Linuxにインストールされているパッケージに重複してい
 find_duplicate.py
 ```
 
+## あるパッケージと重複しているファイルを含むパッケージを調べる
+```
+find_duplicate.py samba
+```
+
 ## 2つのパッケージから重複しているファイルを調べる
 ```
 find_duplicate.py samba tdb
