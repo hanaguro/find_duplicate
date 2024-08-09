@@ -111,6 +111,9 @@ def is_excluded(line, file_path):
         return True
     if any(fnmatch.fnmatch(file_path, pattern) or fnmatch.fnmatch(base_name, pattern) for pattern in exclude_patterns_from_conf):
         return True
+    pattern = "^"+os.path.basename(file_path)
+    if re.search(pattern, line):
+        return True
     return False
 
 # ファイルを処理する関数
@@ -123,7 +126,8 @@ def process_file(file_path, base_path=""):
                 if is_excluded(line, file_path):
                     continue
                 full_line = os.path.join(base_path, line)
-                if full_line not in lines:
+                if full_line not in lines: 
+                    # (例) full_line: usr/lib/libsframe.a, file_path: /var/log/package/gdb
                     duplicate_lines[full_line].add(file_path)
                     lines.add(full_line)
                     if re.search(r'\.so(\.[0-9]+)*$', line):
@@ -164,13 +168,15 @@ for path in paths:
     if os.path.isfile(path):
         process_file(path)
     elif os.path.isdir(path):
-        for root, _, files in os.walk(path):
+        for root, _, files in os.walk(path): 
+            # root: 現在のディレクトリ, files: rootディレクトリ内のファイルのリスト
             for file in files:
                 process_file(os.path.join(root, file))
 
 def print_duplicates(filter_archive=None):
     print("重複するファイル/リンク:")
     for line, files in duplicate_lines.items():
+        # (例) line: usr/lib/libsframe.a, files: /var/log/package/gdb, /var/log/packages/binutils
         if len(files) > 1:
             package_filter_archive_flag = False
             one_arg_name_flag = False
@@ -193,18 +199,26 @@ def print_duplicates(filter_archive=None):
 def print_potential_duplicates(filter_archive=None):
     print("重複の恐れがあるライブラリ (.so):")
     for base_name, file_dict in potential_duplicates.items():
+        # (例) base_name: usr/lib/libnsl.so, 
+        #      file_dict: {'/var/log/packages/libnsl': {'lib/libnsl.so.2.0.0', 'lib/libnsl.so.2'}, 
+        #                  '/var/log/packages/glibc': {'lib/libnsl.so.1'}}
+
         if len(file_dict) > 1:
             package_filter_archive_flag = False
             one_arg_name_flag = False
             for file in file_dict.keys():
+                # (例) file: /var/log/packages/libnsl
+                #      file_dict.keys(): ['/var/log/packages/libnsl', '/var/log/packages/glibc']
                 if f"PACKAGE:{filter_archive}" in file:
                     package_filter_archive_flag = True
                 if os.path.basename(file) == one_arg_name:
                     one_arg_name_flag = True
 
             if filter_archive and not package_filter_archive_flag:
+                # パッケージファイルが引数に与えられたが、今回のループでは含まれない
                 continue
             if one_arg_name and not one_arg_name_flag:
+                # 一つのパッケージファイルが引数に与えられたが、今回のループでは含まれない
                 continue
             print(f"ベース名: /{base_name}")
             for file_path, lines in file_dict.items():
