@@ -5,6 +5,7 @@ import re
 import sys
 import fnmatch
 import subprocess
+import mimetypes
 from collections import defaultdict
 
 PKGDIR = "/var/log/packages/"
@@ -14,10 +15,18 @@ paths = []
 options = []
 archive_file = None
 
+
+def is_installed_pkg(file_path):
+    if os.path.exists(PKGDIR + file_path):
+        return True
+    return False
+
+
 i = 1
 while i < len(sys.argv):
     arg = sys.argv[i]
     if arg.startswith('-'):
+###
         if 'd' in arg:
             if arg == '-d':                         # 引数が完全に-d
                 archive_file = sys.argv[i + 1]      # 次の引数を archive_file に格納
@@ -34,7 +43,7 @@ while i < len(sys.argv):
             if not os.path.isfile(archive_file):
                 print(f"パッケージファイルが見つかりません: {archive_file}")
                 sys.exit(1)
-
+###
         if 'a' in arg:
             options.append('a')
         if 'p' in arg:
@@ -42,7 +51,10 @@ while i < len(sys.argv):
         if arg == '--help' or arg == '-h':
             options.append('h')
     else:
-        paths.append(PKGDIR + arg)
+        if not is_installed_pkg(arg):
+            archive_file = arg
+        else:
+            paths.append(PKGDIR + arg)
     i += 1
 
 for path in paths:
@@ -64,11 +76,11 @@ def print_help():
     print("使用方法1: python find_duplicate.py [オプション]")
     print("使用方法2: python find_duplicate.py [オプション] <パッケージ>")
     print("使用方法2: python find_duplicate.py [オプション] <パッケージ1> <パッケージ2>")
-    print("使用方法3: python find_duplicate.py -d <パッケージ>")
+#    print("使用方法3: python find_duplicate.py -d <パッケージ>")
     print("オプション:")
     print("  -a    重複するファイルを含むパッケージと重複する恐れのあるライブラリを含むパッケージの両方を表示")
     print("  -p    重複する恐れのあるライブラリを含むパッケージのみを表示")
-    print("  -d <package>    指定されたPlamoパッケージファイルと比較")
+#    print("  -d <package>    指定されたPlamoパッケージファイルと比較")
     print("  -h    このヘルプメッセージを表示")
     sys.exit(0)
 
