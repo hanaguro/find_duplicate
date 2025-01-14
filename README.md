@@ -19,7 +19,7 @@ find_duplicate.py samba tdb
 
 ## パッケージに重複しているインストール済みファイルが含まれるか調べる
 ```
-find_duplicate.py -d gcc-14.1.0-x86_64-B1.tzst 
+find_duplicate.py gcc-14.1.0-x86_64-B1.tzst 
 ```
 
 ## 重複する可能性のあるライブラリを含むパッケージを調べる
