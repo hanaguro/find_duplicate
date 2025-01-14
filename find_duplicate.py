@@ -5,7 +5,6 @@ import re
 import sys
 import fnmatch
 import subprocess
-import mimetypes
 from collections import defaultdict
 
 PKGDIR = "/var/log/packages/"
@@ -71,6 +70,7 @@ if len(paths) == 1 and os.path.isfile(paths[0]):
 if not paths or (len(paths) == 1 and os.path.isfile(paths[0])):
     paths.append(PKGDIR)
 
+
 # ヘルプメッセージを表示する関数
 def print_help():
     print("使用方法1: python find_duplicate.py [オプション]")
@@ -83,6 +83,7 @@ def print_help():
 #    print("  -d <package>    指定されたPlamoパッケージファイルと比較")
     print("  -h    このヘルプメッセージを表示")
     sys.exit(0)
+
 
 # -h オプションが指定されている場合はヘルプメッセージを表示
 if 'h' in options:
@@ -102,7 +103,7 @@ exclude_patterns = [
     r"^PACKAGE LOCATION:",
     r"^PACKAGE DESCRIPTION:",
     r"^FILE LIST:",
-    r"^install/", 
+    r"^install/",
     r".*/$"
 ]
 
@@ -155,8 +156,13 @@ def process_file(file_path, base_path=""):
         print(f"ファイルの処理中に問題が発生しました: {os.path.basename(file_path)}: {e}")
         sys.exit(1)
 
+
 # アーカイブファイルを処理する関数
 def process_archive(archive_path):
+    if not os.path.isfile(archive_path):
+        print(f"パッケージファイルが見つかりません: {archive_path}")
+        sys.exit(1)
+
     try:
         output = subprocess.check_output(['tar', '-tf', archive_path], text=True)
         for line in output.splitlines():
@@ -171,6 +177,7 @@ def process_archive(archive_path):
         print(f"パッケージの解析中に問題が発生しました: {archive_path}: {e}")
         sys.exit(1)
 
+
 # アーカイブファイルを処理
 if archive_file:
     process_archive(archive_file)
@@ -184,6 +191,7 @@ for path in paths:
             # root: 現在のディレクトリ, files: rootディレクトリ内のファイルのリスト
             for file in files:
                 process_file(os.path.join(root, file))
+
 
 def print_duplicates(filter_archive=None):
     print("重複するファイル/リンク:")
@@ -207,6 +215,7 @@ def print_duplicates(filter_archive=None):
                 name = os.path.basename(file)
                 print(f"パッケージ: {name}")
             print("")
+
 
 def print_potential_duplicates(filter_archive=None):
     print("重複の恐れがあるライブラリ (.so):")
@@ -238,6 +247,7 @@ def print_potential_duplicates(filter_archive=None):
                     name = os.path.basename(file_path)
                     print(f"エントリ: /{line} ({name})")
             print("")
+
 
 # 結果を表示
 if archive_file:
